@@ -7,13 +7,12 @@ output: pdf_document
 
 We tried several approaches in our attempts to predict wine quality from our given information. In general, these approaches ranged from more simple, understandable models, such as basic linear regression and linear regression with higher order terms, to more complicated approaches, including support vector regression among others. In addition, we tried several approaches for selecting features, including using our intuition and creating features by hand, to more automatic approaches, such as using stepwise regression. 
 
-
-
+We explain all this and our other modelling approaches and decisions below, along with the corresponding R code. 
 
 ```{r, message=FALSE}
 # load the wine data
 library(glmnet)
-wine <- read.csv("~/Downloads/wine.train.csv")
+wine <- read.csv("~Downloads/wine.train.csv")
 N <- dim(wine)[1]
 p <- dim(wine)[2] - 1
 
@@ -25,7 +24,7 @@ wine_train <- wine[1:(0.9*N),]
 wine_eval <- wine[(0.9*N + 1):N,]
 ```
 
-Do some PCA plots and stuff, wheeee
+Here we simply did a little exploratory analysis to visualize the differences between the features in teh red and white wines. The plotting revealed some details about the data; for example, we saw that citric acid and fixed.acidity were close to eachother in both the red and white wine space. 
 
 ```{r, message=FALSE}
 # 1. Exploring the data
@@ -42,7 +41,7 @@ pca_whites$eig
 pca_reds$eig
 ```
 
-Baseline performance of boring ols
+Having looked at the data and gotten a feel for it, we proceeded to first use an unpenalized OLS linear regression model to try to predict wine quality from our given data. Note as a first step we simply included all the given parameters. We noticed that the generalization error on our original OLS model was relatively high, having a MSE of .55; this suggested that we might want to make our model a little more complicated, and give it more features, so that we could get a better fit. Of course by doing this, we risked overfitting, and in fact when fit 2nd and 3rd order models, our generalization error increase to .58 for the 2nd order model and a very large 1.8 for the 3rd order model. We concluded we were overfitting with the more complicated models, which led to the feature selection approaches we looked at next.
 
 ```{r, message=FALSE}
 # 2. Model building
