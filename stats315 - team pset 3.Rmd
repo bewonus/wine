@@ -1,11 +1,13 @@
 ---
 title: "Stats 305 - Team PSET 3"
-author: "Brandon Ewonus"
+author: "Brandon Ewonus", "Nat Roth", "Bryan McCann"
 date: "March 8, 2015"
 output: pdf_document
 ---
 
-Load the data up, blah blahasdf;a ksjd
+We tried several approaches in our attempts to predict wine quality from our given information. In general, these approaches ranged from more simple, understandable models, such as basic linear regression and linear regression with higher order terms, to more complicated approaches, including support vector regression among others. In addition, we tried several approaches for selecting features, including using our intuition and creating features by hand, to more automatic approaches, such as using stepwise regression. 
+
+
 
 
 ```{r, message=FALSE}
