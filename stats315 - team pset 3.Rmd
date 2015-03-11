@@ -5,7 +5,7 @@ date: "March 8, 2015"
 output: pdf_document
 ---
 
-We tried several approaches in our attempts to predict wine quality from our given information. In general, these approaches ranged from more simple, understandable models, such as basic linear regression and linear regression with higher order terms, to more complicated approaches, including support vector regression among others. In addition, we tried several approaches for selecting features, including using our intuition and creating features by hand, to more automatic approaches, such as using stepwise regression. 
+We tried several approaches in our attempts to predict wine quality from our given information. In general, these approaches ranged from more simple, understandable models, such as basic linear regression and linear regression with higher order terms, to more complicated approaches, including support vector regression among others. In addition, we tried several approaches for selecting features, including using our intuition and creating features by hand, to more automatic approaches, such as using stepwise regression. Throughout the whole assignment, we held out some data which we ultimately used to evaluate our models after we had done feature selection using CV on our train data. This helped us to be confident that our prediction/generalization error on our held out data, which we did not train on, would be roughly indicative of our performance on the true test data.  
 
 We explain all this and our other modelling approaches and decisions below, along with the corresponding R code. 
 
