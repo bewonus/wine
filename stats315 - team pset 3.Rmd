@@ -189,11 +189,11 @@ X_eval_lo2 <- model.matrix(~ .^2, X_eval_lo)
 
 \subsection*{3. Regularization, cross-validation, and evaluation of our regression-based models}
 
-BRYAN'S SECTION:
-
-JUST DESCRIBE CODE IN THE GREY BOX BELOW THIS. EARLIER WE DESCRIBED HTE FEATURES, SO JUST SAY HOW EACH MODEL PERFORMED AND BRIEF INTUTION ON WHY THEY WERE GOOD/BAD AND WHY THE FEATURES WERE GOOD/BAD. 
-
-notes: code below runs ridge, lasso, and elastic net (with alpha = 0.5) regression with all of the above classes of predictor variables, cross validates to find the best lambda for each, then evaluates the resulting model on the evaluation set
+With all of these models trained on different features and subsets of the data, we moved on to regularization, coss-validation, and evaluation. 
+Without too much insight into what the data looked like behind the scenes, we opted for trying multiple kinds of regularization: ridge, lasso, and elastic net with an alpha setting it halfway between ridge regression and lasso.
+This was done in one fell swoop by cross-validating using the elastic-net alpha parameter to decide the most effective regularization type. 
+A lambda parameter was also chosen in cross-validation to determine how strong the reglarization should be. 
+Our standard for choosing the model with the best mean squared error on a held out validation set. 
 
 ```{r, message=FALSE}
 library(glmnet)
@@ -220,7 +220,33 @@ evaluate_model <- function(X_train, X_eval, y_train, y_eval) {
     print(paste("evaluation mse: ", mean((y_eval - y_eval_hat)^2)))
   }
 }
+```
 
+The models demonstrated a wide variety of tuned hyperparameters to the wine dataset after cross-validation,
+but the mean squared error shows a clear ranking between methods.
+The simplest model used lasso regularization and achieved a decent MSE (.544),
+but using second-order interactions between color and all other predictors made a small improvement. 
+Including all second-order interactions proved more successful, and the trend continued with all third order interactions. 
+This revealed to us that we needed to push for a more complex model, capturing non-linear aspects of the data.
+
+This hypothesis appeared to come true as we fit the local linear regression models. 
+Each surpassed the previous models, and the one using second-order interactions performed better than that with only first-order interactions.
+From this, we concluded that local models using compex interactions would give the best results for this dataset. 
+
+The regularization techniques chosen by cross-validation for each model provided further insight into the dataset.
+The model using second-order interactions performed better than that using first-order and second-order only with color as long as it used ridge regularization.
+As soon as lasso regularization was used with a similar model trained on second-order polynomials, we saw the worst MSE of all.
+This suggested that models that worked best with ridge regularization would be preferred as we moved to more complex models. 
+Indeed, our attempt at using a complex model relying on natural cubic splines of all the predictors chose to use lasso as well,
+and the results were nearly as poor. 
+The higher order polynomial models performed much better with ridge than lasso, 
+and of the two local linear regression models, the one using elastic-net won out over the one using lasso as well. 
+
+In summary, we found that fitting local linear regression models with second-order interactions performed the best of the models mentioned above.
+In cross-validation, the model chose to use an alpha parameter of .5 for elastic-net regularization. 
+Based on our experiments with higher-order interactions, ridge-like regularization methods work better than lasso as a model's features become more complex.
+
+```
 # evaluate all of the above models! best evaluation score (w. corresponding alpha) to the right
 evaluate_model(X_train_order1, X_eval_order1, y_train, y_eval) # 0.544 (alpha=0)
 evaluate_model(X_train_order2_color, X_eval_order2_color, y_train, y_eval) # 0.539 (alpha=0)
@@ -243,8 +269,12 @@ cv_lasso <- cv.lars(x=X_train_order1, y=y_train, type="lasso", K=10)
 
 \subsection*{4. More complicated models}
 
-We next took an entirely different approach, and explored some more complicated models. We decided to use tune a support vector machine for regression using a radial basis kernel, which we hoped would ease our decision of what variables to include in our model. Surprisingly, we found that our svm regression models were the easiest to implement (we used an essentially out-of-the-box package), tune, and predict on, and they gave us some of our best overall evaluation MSE's! Our most performant version included third order interactions, a cost parameter of 4, and an epsilon parameter of 0.1. It's overall evaluation MSE was 0.471, and it also obtained the best performance on white wine's, with an MSE of 0.483.
-
+Next, we next took an entirely different approach.
+While support vector machines are now widely used for classification, we discovered that they can also be used for regression as well. 
+In classification, the model uses support vectors to define margins around a decisino boundary, leaving the rest of the data outside those margins.
+In support vector regression, the machine actually fits so that the data is between the two margins. 
+We used this form of epsilon regression in a support vector machine with radial basis kernel to see how even more complicated models would fair on the wine dataset.
+As more complicated models seemed to have better performance up to this point, we hoped this would ease our decision of what variables to include in our model. Surprisingly, we found that our svm regression models were the easiest to implement (we used an essentially out-of-the-box package), tune, and predict on, and they gave us some of our best overall evaluation MSE's! Our most performant version included third order interactions, a cost parameter of 4, and an epsilon parameter of 0.1. It's overall evaluation MSE was 0.471, and it also obtained the best performance on white wine's, with an MSE of 0.483.
 ```{r, message=FALSE}
 # evaluate support vector machine for regression
 library(e1071)
