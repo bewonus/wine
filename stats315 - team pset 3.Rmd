@@ -59,7 +59,9 @@ ols_order2 <- lm(quality ~ .^2, wine_train)
 mean((wine_eval$quality - predict(ols_order2, wine_eval))^2)
 ```
 
-Forward and backward selection using AIC as alternatives to lasso/regression/elastic net (they have great training error, but don't generalize well to the evaluation set). So, better use a different method
+We tried both forward and backware selection using AIC as our criteron; AIC penalizes models with more parameters and rewards those with higher likelihood scores, thus hopefully helping us achieve a middle ground between overfitting our model by having too many parameters, and underfitting it, and thus biasing our model. 
+
+We used this stepwise regression approach to do feature selection on the 2nd order model; while the model had quite lower train error (MSE ~.47), it still generalized quite poorly(MSE~1.7), which was disappointing. So, our model here was probably still too complicated, and we were still overfitting, despite our attempts at simplyfing our model using feature selection. 
 
 ```{r, message=FALSE}
 # forward and backward selection (using AIC criterion)
@@ -79,6 +81,11 @@ mean((wine_eval$quality - predict(backward, wine_eval))^2) # 1.822736
 ```
 
 Create a bunch of different classes of predictor variables: main effects, 2nd order interactions, ...
+
+We next experimented with generating a bunch of other features. We tried, among other things, using a natural cubic spline with 2 knots to model the data, and fitting separate models for each color of wine. We also fit several local regression models using subsets of the parameters as our features and using R's LOESS package. For each of these fitted models, we then predicted on our held out evaluation set. We ended up using these predictions as features in some of our models going forward, the logic being that by fitting a couple different models to subsets of the data and then combining those in a future model, we would increase our model's flexibility (i.e we can essentially get non-linear parameters by fitting a model and then passing its outputs into a future model as a feature). Further, hopefully the predictions by subsets of the data for various parameters are roughly accurate, and thus could serve as useful features for future predictions. 
+
+The results of all the models fit using all these features is described in detail later in our report.
+
 
 ```{r, message=FALSE}
 # different classes of predictor variables
@@ -208,6 +215,10 @@ X_eval_lo1 <- model.matrix(~ ., X_eval_lo)
 X_train_lo2 <- model.matrix(~ .^2, X_train_lo)
 X_eval_lo2 <- model.matrix(~ .^2, X_eval_lo)
 ```
+
+BRYAN'S SECTION:
+
+JUST DESCRIBE CODE IN THE GREY BOX BELOW THIS. EARLIER WE DESCRIBED HTE FEATURES, SO JUST SAY HOW EACH MODEL PERFORMED AND BRIEF INTUTION ON WHY THEY WERE GOOD/BAD AND WHY THE FEATURES WERE GOOD/BAD. 
 
 Run ridge, lasso, and elastic net (with alpha = 0.5) regression with all of the above classes of predictor variables, cross validate to find the best lambda for each, then evaluate the resulting model on the evaluation set. Also tune a support vector machine for regression and evaluate its performance
 
