@@ -5,14 +5,15 @@ date: "March 8, 2015"
 output: pdf_document
 ---
 
-We tried several approaches in our attempts to predict wine quality from our given information. In general, these approaches ranged from more simple, understandable models, such as basic linear regression and linear regression with higher order terms, to more complicated approaches, including support vector regression among others. In addition, we tried several approaches for selecting features, including using our intuition and creating features by hand, to more automatic approaches, such as using stepwise regression. Throughout the whole assignment, we held out some data which we ultimately used to evaluate our models after we had done feature selection using CV on our train data. This helped us to be confident that our prediction/generalization error on our held out data, which we did not train on, would be roughly indicative of our performance on the true test data.  
+We tried several approaches in our attempts to predict wine quality from our given information. In general, these approaches ranged from more simple, understandable models, such as basic linear regression and linear regression with higher order terms, to more complicated approaches, including support vector regression among others. In addition, we tried several approaches for selecting features, including using our intuition and creating features by hand, to more automatic approaches, such as using stepwise regression. Throughout the whole assignment, we held out some data which we ultimately used to evaluate our models after we had done feature selection using CV on our train data. This helped us to be confident that our prediction/generalization error on our held out data, which we did not train or tune on, would be roughly indicative of our performance on the true test data.  
 
 We explain all this and our other modelling approaches and decisions below, along with the corresponding R code. 
 
+\section*{1. Exploring the data with simple models}
+
 ```{r, message=FALSE}
 # load the wine data
-library(glmnet)
-wine <- read.csv("~Downloads/wine.train.csv")
+wine <- read.csv("~/Downloads/wine.train.csv")
 N <- dim(wine)[1]
 p <- dim(wine)[2] - 1
 
@@ -24,11 +25,9 @@ wine_train <- wine[1:(0.9*N),]
 wine_eval <- wine[(0.9*N + 1):N,]
 ```
 
-Here we simply did a little exploratory analysis to visualize the differences between the features in teh red and white wines. The plotting revealed some details about the data; for example, we saw that citric acid and fixed.acidity were close to eachother in both the red and white wine space. 
+Here we simply did a little exploratory analysis to visualize the differences between the features in the red and white wines. The plotting revealed some details about the data; for example, we saw that citric acid and fixed.acidity were close to each other in both the red and white wine space. For whites wines, the greatest variance in the data seems to be explained mostly by the difference in its residual sugar and density versus its alcohol content, whereas for red wines, the greatest variance seemed to be explained via different levels of the three types of acidity, and the chloride/sulphate content. For both wine colors, upwards of 50 percent of the variation in the data is explained by just the first 3 principal component directions.
 
 ```{r, message=FALSE}
-# 1. Exploring the data
-
 # visualization of principal components for red and white wines
 library(FactoMineR)
 whites <- wine_train$color == 'white'
@@ -41,29 +40,28 @@ pca_whites$eig
 pca_reds$eig
 ```
 
-Having looked at the data and gotten a feel for it, we proceeded to first use an unpenalized OLS linear regression model to try to predict wine quality from our given data. Note as a first step we simply included all the given parameters. We noticed that the generalization error on our original OLS model was relatively high, having a MSE of .55; this suggested that we might want to make our model a little more complicated, and give it more features, so that we could get a better fit. Of course by doing this, we risked overfitting, and in fact when fit 2nd and 3rd order models, our generalization error increase to .58 for the 2nd order model and a very large 1.8 for the 3rd order model. We concluded we were overfitting with the more complicated models, which led to the feature selection approaches we looked at next.
+Having looked at the data and gotten a feel for it, we proceeded to first use an unpenalized OLS linear regression model to try to predict wine quality from our given data. Note as a first step we simply included all the given parameters. We noticed that the generalization error on our original OLS model was relatively high, having a MSE of .55, and in addition, nearly all of our variables were highly significant; this suggested that we might want to make our model a little more complicated, and give it more features, so that we could get a better fit. Of course by doing this, we risked overfitting, and in fact when fit 2nd and 3rd order models, our generalization error increase to .58 for the 2nd order model and a very large 1.8 for the 3rd order model. We concluded we were overfitting with the more complicated models, which led to the feature selection approaches we looked at next.
 
 ```{r, message=FALSE}
-# 2. Model building
-
 # BASELINE: ordinary least squares regression (no penalty)
 ols <- lm(quality ~ ., wine_train)
-mean((wine_eval$quality - predict(ols, wine_eval))^2)
+summary(ols)
+mean((wine_eval$quality - predict(ols, wine_eval))^2) # 0.5501835
 
 # only color interaction
 ols_order2 <- lm(quality ~ .*color, wine_train)
-mean((wine_eval$quality - predict(ols_order2, wine_eval))^2)
+mean((wine_eval$quality - predict(ols_order2, wine_eval))^2) # 0.5824973
 
 # all 2nd order interactions
 ols_order2 <- lm(quality ~ .^2, wine_train)
-mean((wine_eval$quality - predict(ols_order2, wine_eval))^2)
+mean((wine_eval$quality - predict(ols_order2, wine_eval))^2) # 1.80406
 ```
 
-We tried both forward and backware selection using AIC as our criteron; AIC penalizes models with more parameters and rewards those with higher likelihood scores, thus hopefully helping us achieve a middle ground between overfitting our model by having too many parameters, and underfitting it, and thus biasing our model. 
+We tried both forward and backward stepwise selection using AIC as our criteron; AIC penalizes models with more parameters and rewards those with higher likelihood scores, thus hopefully helping us achieve a middle ground between overfitting our model by having too many parameters, and underfitting it, and thus biasing our model. 
 
-We used this stepwise regression approach to do feature selection on the 2nd order model; while the model had quite lower train error (MSE ~.47), it still generalized quite poorly(MSE~1.7), which was disappointing. So, our model here was probably still too complicated, and we were still overfitting, despite our attempts at simplyfing our model using feature selection. 
+We used this stepwise regression approach to do feature selection on the 2nd order model; while the model had quite lower train error (MSE ~.47), it still generalized quite poorly (MSE~1.7), which was disappointing. So, our model here was probably still too complicated, and we were still overfitting, despite our attempts at simplyfing our model using feature selection. 
 
-```{r, message=FALSE}
+```{r, message=FALSE, background=TRUE}
 # forward and backward selection (using AIC criterion)
 # the null model is just an intercept, and the full model includes all pairwise interactions
 model_null <- lm(quality ~ 1, data=wine_train)
@@ -80,12 +78,11 @@ mean((wine_eval$quality - predict(forward, wine_eval))^2) # 1.60069
 mean((wine_eval$quality - predict(backward, wine_eval))^2) # 1.822736
 ```
 
-Create a bunch of different classes of predictor variables: main effects, 2nd order interactions, ...
+\section*{2. Exploring feature spaces for penalized regression-based models}
 
-We next experimented with generating a bunch of other features. We tried, among other things, using a natural cubic spline with 2 knots to model the data, and fitting separate models for each color of wine. We also fit several local regression models using subsets of the parameters as our features and using R's LOESS package. For each of these fitted models, we then predicted on our held out evaluation set. We ended up using these predictions as features in some of our models going forward, the logic being that by fitting a couple different models to subsets of the data and then combining those in a future model, we would increase our model's flexibility (i.e we can essentially get non-linear parameters by fitting a model and then passing its outputs into a future model as a feature). Further, hopefully the predictions by subsets of the data for various parameters are roughly accurate, and thus could serve as useful features for future predictions. 
+We next experimented with generating a bunch of other features. We tried, among other things, using natural cubic splines with various numbers of knots (up to 20) to model the data, and fitting separate models for each color of wine. We also fit several local regression models using subsets of the parameters as our features and using R's LOESS package. For each of these fitted models, we then predicted on our held out evaluation set. We ended up using these predictions as features in some of our models going forward, the logic being that by fitting a couple different models to subsets of the data and then combining those in a future model, we would increase our model's flexibility (i.e we can essentially get non-linear parameters by fitting a model and then passing its outputs into a future model as a feature). Further, hopefully the predictions by subsets of the data for various parameters are roughly accurate, and thus could serve as useful features for future predictions. 
 
 The results of all the models fit using all these features is described in detail later in our report.
-
 
 ```{r, message=FALSE}
 # different classes of predictor variables
@@ -105,40 +102,26 @@ X_eval_order2 <- model.matrix(~.^2, X_eval)
 X_train_order2_color <- model.matrix(~.*color, X_train) # only color interactions
 X_eval_order2_color <- model.matrix(~.*color, X_eval)
 X_train_order3 <- model.matrix(~.^3, X_train) # all third order interactions
-X_eval_order3 <- model.matrix(~.^3, X_eval) # all third order interactions
+X_eval_order3 <- model.matrix(~.^3, X_eval)
 
-# polynomial of degree 2 (includes all cross terms)
+# polynomials of degree 2 (includes all cross terms)
 X_train_order2_poly <- model.matrix(~.^2
-                            + poly(X_train[,1],2)
-                            + poly(X_train[,3],2)
-                            + poly(X_train[,4],2)
-                            + poly(X_train[,5],2)
-                            + poly(X_train[,6],2)
-                            + poly(X_train[,7],2)
-                            + poly(X_train[,8],2)
-                            + poly(X_train[,9],2)
-                            + poly(X_train[,10],2)
-                            + poly(X_train[,11],2)
-                            + poly(X_train[,12],2)
-                            + poly(X_train[,13],2)
-                            , X_train)
+                            + poly(X_train[,1],2) + poly(X_train[,3],2)
+                            + poly(X_train[,4],2) + poly(X_train[,5],2)
+                            + poly(X_train[,6],2) + poly(X_train[,7],2)
+                            + poly(X_train[,8],2) + poly(X_train[,9],2)
+                            + poly(X_train[,10],2) + poly(X_train[,11],2)
+                            + poly(X_train[,12],2) + poly(X_train[,13],2), X_train)
 X_eval_order2_poly <- model.matrix(~.^2
-                            + poly(X_eval[,1],2)
-                            + poly(X_eval[,3],2)
-                            + poly(X_eval[,4],2)
-                            + poly(X_eval[,5],2)
-                            + poly(X_eval[,6],2)
-                            + poly(X_eval[,7],2)
-                            + poly(X_eval[,8],2)
-                            + poly(X_eval[,9],2)
-                            + poly(X_eval[,10],2)
-                            + poly(X_eval[,11],2)
-                            + poly(X_eval[,12],2)
-                            + poly(X_eval[,13],2)
-                            , X_eval)
+                            + poly(X_eval[,1],2) + poly(X_eval[,3],2)
+                            + poly(X_eval[,4],2) + poly(X_eval[,5],2)
+                            + poly(X_eval[,6],2) + poly(X_eval[,7],2)
+                            + poly(X_eval[,8],2) + poly(X_eval[,9],2)
+                            + poly(X_eval[,10],2) + poly(X_eval[,11],2)
+                            + poly(X_eval[,12],2) + poly(X_eval[,13],2), X_eval)
 
 # natural cubic splines with df-2 internal knots, and interactions with color (df > 20 is too slow)
-df = 20
+df <- 15
 X_train_spline <- model.matrix(~X_train[,2]*(ns(x=X_train[,1], df=df, intercept=FALSE)
                             + ns(x=X_train[,3], df=df, intercept=FALSE)
                             + ns(x=X_train[,4], df=df, intercept=FALSE)
@@ -165,7 +148,6 @@ X_eval_spline <- model.matrix(~X_eval[,2]*(ns(x=X_eval[,1], df=df, intercept=FAL
                             + ns(x=X_eval[,12], df=df, intercept=FALSE)
                             + ns(x=X_eval[,13], df=df, intercept=FALSE))
                             , X_eval)
-ncol(X_train_spline)
 
 # local linear regressions
 var_names <- colnames(wine_train)
@@ -177,31 +159,21 @@ lo.fit5 <- loess(quality ~ fixed.acidity + chlorides + pH, data=wine_train)
 lo.fit6 <- loess(quality ~ volatile.acidity + free.sulfur.dioxide + sulphates, data=wine_train)
 lo.fit7 <- loess(quality ~ alcohol + citric.acid + total.sulfur.dioxide, data=wine_train)
 
-X_train_lo <- X_train
-X_train_lo["lo.fit1"] <- lo.fit1$fitted
-X_train_lo["lo.fit2"] <- lo.fit2$fitted
-X_train_lo["lo.fit3"] <- lo.fit3$fitted
-X_train_lo["lo.fit4"] <- lo.fit4$fitted
-X_train_lo["lo.fit5"] <- lo.fit5$fitted
-X_train_lo["lo.fit6"] <- lo.fit6$fitted
-X_train_lo["lo.fit7"] <- lo.fit7$fitted
-
-X_eval_lo <- X_eval
-X_eval_lo["lo.fit1"] <- predict(lo.fit1, newdata=X_eval)
-X_eval_lo["lo.fit2"] <- predict(lo.fit2, newdata=X_eval)
-X_eval_lo["lo.fit3"] <- predict(lo.fit3, newdata=X_eval)
-X_eval_lo["lo.fit4"] <- predict(lo.fit4, newdata=X_eval)
-X_eval_lo["lo.fit5"] <- predict(lo.fit5, newdata=X_eval)
-X_eval_lo["lo.fit6"] <- predict(lo.fit6, newdata=X_eval)
-X_eval_lo["lo.fit7"] <- predict(lo.fit7, newdata=X_eval)
-
+X_train_lo <- X_train; X_eval_lo <- X_eval
+X_train_lo["lo.fit1"] <- lo.fit1$fitted; X_eval_lo["lo.fit1"] <- predict(lo.fit1, newdata=X_eval)
+X_train_lo["lo.fit2"] <- lo.fit2$fitted; X_eval_lo["lo.fit2"] <- predict(lo.fit2, newdata=X_eval)
+X_train_lo["lo.fit3"] <- lo.fit3$fitted; X_eval_lo["lo.fit3"] <- predict(lo.fit3, newdata=X_eval)
+X_train_lo["lo.fit4"] <- lo.fit4$fitted; X_eval_lo["lo.fit4"] <- predict(lo.fit4, newdata=X_eval)
+X_train_lo["lo.fit5"] <- lo.fit5$fitted; X_eval_lo["lo.fit5"] <- predict(lo.fit5, newdata=X_eval)
+X_train_lo["lo.fit6"] <- lo.fit6$fitted; X_eval_lo["lo.fit6"] <- predict(lo.fit6, newdata=X_eval)
+X_train_lo["lo.fit7"] <- lo.fit7$fitted; X_eval_lo["lo.fit7"] <- predict(lo.fit7, newdata=X_eval)
 
 rows0 <- rownames(X_eval_lo)
 dummy <- model.matrix(~ ., X_eval_lo)
 rows1 <- rownames(dummy)
 nas <- setdiff(rows0, rows1)
 
-# impute NAs from loess prediction by averaging
+# impute NAs from loess prediction by averaging non-NA predictions
 for (i in 1:length(nas)) {
   X_eval_lo[nas[i], which(is.na(X_eval_lo[nas[i],]))] <- 
     mean(as.numeric(X_eval_lo[nas[i], p + which(!is.na(X_eval_lo[nas[i], (p+1):(p+7)]))]))
@@ -210,17 +182,18 @@ for (i in 1:length(nas)) {
 # full model plus local fits
 X_train_lo1 <- model.matrix(~ ., X_train_lo)
 X_eval_lo1 <- model.matrix(~ ., X_eval_lo)
-
 # include second order interactions between all variables and local fits
 X_train_lo2 <- model.matrix(~ .^2, X_train_lo)
 X_eval_lo2 <- model.matrix(~ .^2, X_eval_lo)
 ```
 
+\section*{3. Regularization, cross-validation, and evaluation of our regression-based models}
+
 BRYAN'S SECTION:
 
 JUST DESCRIBE CODE IN THE GREY BOX BELOW THIS. EARLIER WE DESCRIBED HTE FEATURES, SO JUST SAY HOW EACH MODEL PERFORMED AND BRIEF INTUTION ON WHY THEY WERE GOOD/BAD AND WHY THE FEATURES WERE GOOD/BAD. 
 
-Run ridge, lasso, and elastic net (with alpha = 0.5) regression with all of the above classes of predictor variables, cross validate to find the best lambda for each, then evaluate the resulting model on the evaluation set. Also tune a support vector machine for regression and evaluate its performance
+notes: code below runs ridge, lasso, and elastic net (with alpha = 0.5) regression with all of the above classes of predictor variables, cross validates to find the best lambda for each, then evaluates the resulting model on the evaluation set
 
 ```{r, message=FALSE}
 # 3. Evaluate models
@@ -231,124 +204,78 @@ Run ridge, lasso, and elastic net (with alpha = 0.5) regression with all of the 
 evaluate_model <- function(X_train, X_eval, y_train, y_eval) {
   for (alpha in c(0, 0.5, 1)) {
     print(paste("alpha: ", alpha))
+    
+    # retrieve optimal lambda
     cv <- cv.glmnet(x=X_train, y=y_train, alpha=alpha, nfolds=10)
     l <- cv$lambda.min
-    print(paste("lambda:", l))
-
+    
     # fit the model
     models <- glmnet(x=X_train, y=y_train, family="gaussian", alpha=alpha, nlambda=100)
     fitted <- predict(models, s=l, newx=X_train, type="response")
-
+    
     # cv mse
     print(paste("cv mse: ", mean((y_train - fitted)^2)))
-
-    # evaluation mse
+    
+    # evaluation mse; ultimately, this is the score that we use to compare models
     y_eval_hat <- predict(models, s=l, newx=X_eval, type="response")
     print(paste("evaluation mse: ", mean((y_eval - y_eval_hat)^2)))
   }
 }
 
-# evaluate all of the models!
-evaluate_model(X_train_order1, X_eval_order1, y_train, y_eval)
-evaluate_model(X_train_order2_color, X_eval_order2_color, y_train, y_eval)
-evaluate_model(X_train_order2, X_eval_order2, y_train, y_eval)
-evaluate_model(X_train_order3, X_eval_order3, y_train, y_eval)
-evaluate_model(X_train_order2_poly, X_eval_order2_poly, y_train, y_eval)
-evaluate_model(X_train_spline, X_eval_spline, y_train, y_eval)
-evaluate_model(X_train_lo1, X_eval_lo1, y_train, y_eval)
-evaluate_model(X_train_lo2, X_eval_lo2, y_train, y_eval)
+# evaluate all of the above models! best evaluation score (w. corresponding alpha) to the right
+evaluate_model(X_train_order1, X_eval_order1, y_train, y_eval) # 0.544 (alpha=0)
+evaluate_model(X_train_order2_color, X_eval_order2_color, y_train, y_eval) # 0.539 (alpha=0)
+evaluate_model(X_train_order2, X_eval_order2, y_train, y_eval) # 0.528 (alpha=1)
+evaluate_model(X_train_order3, X_eval_order3, y_train, y_eval) # 0.518 (alpha=1)
+evaluate_model(X_train_order2_poly, X_eval_order2_poly, y_train, y_eval) # 0.652 (alpha=0)
+evaluate_model(X_train_spline, X_eval_spline, y_train, y_eval) # 0.588 (alpha=0)
+evaluate_model(X_train_lo1, X_eval_lo1, y_train, y_eval) # 0.520 (alpha=0)
+evaluate_model(X_train_lo2, X_eval_lo2, y_train, y_eval) # 0.493 (alpha=0.5)
+```
 
+Here is a sample lasso path for one of our simpler models, the main effects baseline model. Alcohol and volatile.acidity are the first to variables to enter the model, and have two of the largest coefficients (in magnitude).
+
+```{r, message=FALSE}
+# lasso path and cross validation mse for main effects model
+lasso <- lars(x=X_train_order1, y=y_train, type="lasso")
+plot(lasso)
+cv_lasso <- cv.lars(x=X_train_order1, y=y_train, type="lasso", K=10)
+```
+
+\section*{4. More complicated models}
+
+We next took an entirely different approach, and explored some more complicated models. We decided to use tune a support vector machine for regression using a radial basis kernel, which we hoped would ease our decision of what variables to include in our model. Surprisingly, we found that our svm regression models were the easiest to implement (we used an essentially out-of-the-box package), tune, and predict on, and they gave us some of our best overall evaluation MSE's! Our most performant version included third order interactions, a cost parameter of 4, and an epsilon parameter of 0.1. It's overall evaluation MSE was 0.471, and it also obtained the best performance on white wine's, with an MSE of 0.483.
+
+```{r, message=FALSE}
 # evaluate support vector machine for regression
 library(e1071)
 tuneResult <- tune(svm, quality ~ .,  data = wine_train,
               ranges = list(epsilon = c(0.1,0.01), cost = 2^(-1:3)))
 # above gave epsilon = 0.1, cost = 4, best performance (cv) = 0.4535193
 
-# fit and evaluate svm regressions
+# main effects only
 svm_model <- svm(quality ~ .,  data = wine_train, epsilon = 0.1, cost = 4)
-mean((y_eval - predict(svm_model, wine_eval))^2) # BEST MODEL! eval cv = 0.4786149
+mean((y_eval - predict(svm_model, wine_eval))^2) # eval cv = 0.4786149
 mean((y_eval[reds_eval] - predict(svm_model, wine_eval[reds_eval,]))^2) # 0.4441217
 mean((y_eval[whites_eval] - predict(svm_model, wine_eval[whites_eval,]))^2) # 0.4896073
 
+# second order interactions
 svm_model2 <- svm(quality ~ .^2,  data = wine_train, epsilon = 0.1, cost = 4)
-mean((y_eval - predict(svm_model2, wine_eval))^2) # NEW BEST MODEL! eval cv = 0.4764544
-mean((y_eval[reds_eval] - predict(svm_model2, wine_eval[reds_eval,]))^2) # 0.4309521 <- BEST REDS!
+mean((y_eval - predict(svm_model2, wine_eval))^2) # eval cv = 0.4764544
+mean((y_eval[reds_eval] - predict(svm_model2, wine_eval[reds_eval,]))^2) # 0.4309521
 mean((y_eval[whites_eval] - predict(svm_model2, wine_eval[whites_eval,]))^2) # 0.4909552
 
+# third order interactions
 svm_model3 <- svm(quality ~ .^3,  data = wine_train, epsilon = 0.1, cost = 4)
-mean((y_eval - predict(svm_model3, wine_eval))^2) # EVEN BETTER! eval cv = 0.4713903
+mean((y_eval - predict(svm_model3, wine_eval))^2) # eval cv = 0.4713903 <- BEST OVERALL MODEL! 
 mean((y_eval[reds_eval] - predict(svm_model3, wine_eval[reds_eval,]))^2) # 0.433373
 mean((y_eval[whites_eval] - predict(svm_model3, wine_eval[whites_eval,]))^2) # 0.4835057 <- BEST WHITES!
-
-svm_model_boxcox2 <- svm(y_train ~ .^2,  data = wine_train_boxcox, epsilon = 0.1, cost = 4)
-mean((y_eval - predict(svm_model_boxcox2, wine_eval_boxcox))^2) # eval cv = 0.4791328
-mean((y_eval[reds_eval] - predict(svm_model_boxcox2, wine_eval_boxcox[reds_eval,]))^2) # 0.4366827
-mean((y_eval[whites_eval] - predict(svm_model_boxcox2, wine_eval_boxcox[whites_eval,]))^2) # 0.4926609
-
-#
-X_train_lo_svm <- X_train_lo
-X_train_lo_svm["svm"] <- svm_model$fitted
-
-X_eval_lo_svm <- X_eval_lo
-X_eval_lo_svm["svm"] <- predict(svm_model, newdata=wine_eval)
-
-X_train_lo_svm1 <- model.matrix(~ ., X_train_lo_svm)
-X_eval_lo_svm1 <- model.matrix(~ ., X_eval_lo_svm)
-X_train_lo_svm2 <- model.matrix(~ .^2, X_train_lo_svm)
-X_eval_lo_svm2 <- model.matrix(~ .^2, X_eval_lo_svm)
-
-evaluate_model(X_train_lo_svm1, X_eval_lo_svm1, y_train, y_eval) # slightly better: 0.471986338407701
-evaluate_model(X_train_lo_svm2, X_eval_lo_svm2, y_train, y_eval)
 ```
 
-```{r, message=FALSE}
-### Used only for plotting lasso paths
-#
-# lasso, lar, forward stagewise, and stepwise
-lasso <- lars(x=pred_order1, y=qual, type="lasso")
-lar <- lars(x=pred_order1, y=qual, type="lar")
-
-# main effects
-cv_lasso_1 <- cv.lars(x=pred_order1, y=qual, type="lasso", K=10)
-cv_lar_1 <- cv.lars(x=pred_order1, y=qual, type="lar", K=10)
-cv_fwd_1 <- cv.lars(x=pred_order1, y=qual, type="forward.stagewise", K=10)
-cv_step_1 <- cv.lars(x=pred_order1, y=qual, type="stepwise", K=10)
-
-# all second order interations
-cv_lasso_2 <- cv.lars(x=pred_order2, y=qual, type="lasso", K=10)
-cv_lar_2 <- cv.lars(x=pred_order2, y=qual, type="lar", K=10)
-cv_fwd_2 <- cv.lars(x=pred_order2, y=qual, type="forward.stagewise", K=10)
-cv_step_2 <- cv.lars(x=pred_order2, y=qual, type="stepwise", K=10)
-
-# only color interactions
-cv_lasso_2_color <- cv.lars(x=pred_order2_color, y=qual, type="lasso", K=10)
-cv_lar_2_color <- cv.lars(x=pred_order2_color, y=qual, type="lar", K=10)
-cv_fwd_2_color <- cv.lars(x=pred_order2_color, y=qual, type="forward.stagewise", K=10)
-cv_step_2_color <- cv.lars(x=pred_order2_color, y=qual, type="stepwise", K=10)
-
-# all third order interations
-# WARNING: could be slow
-# cv_lasso_3 <- cv.lars(x=pred_order3, y=qual, type="lasso", K=10)
-# cv_lar_3 <- cv.lars(x=pred_order3, y=qual, type="lar", K=10)
-# cv_fwd_3 <- cv.lars(x=pred_order3, y=qual, type="forward.stagewise", K=10)
-# cv_step_3 <- cv.lars(x=pred_order3, y=qual, type="stepwise", K=10)
-
-# polynomial of degree 2 (includes all cross terms)
-# WARNING: could be slow
-# cv_lasso_2_poly <- cv.lars(x=pred_order2_poly, y=qual, type="lasso", K=10)
-# cv_lar_2_poly <- cv.lars(x=pred_order2_poly, y=qual, type="lar", K=10)
-# cv_fwd_2_poly <- cv.lars(x=pred_order2_poly, y=qual, type="forward.stagewise", K=10)
-# cv_step_2_poly <- cv.lars(x=pred_order2_poly, y=qual, type="stepwise", K=10)
-
-# splines
-# WARNING: could be slow
-# lasso_spline <- lars(x=pred_spline, y=qual, type="lasso")
-# cv_lasso_spline <- cv.lars(x=pred_spline, y=qual, type="lasso", K=10)
-# min(cv_lasso_spline$cv)
-####################
-```
+Having acheived high performance using support vector regression, we were inspired to explore some smoothing methods in our parameter space. We decided to use a thin-plate spline model for each color of wine, such as the one described in (5.37) in Chapter 5 of ``Elements of Statistical Learning". The choice of how many functions to include in our model, and how many variables per function was difficult. To facilitate our search, we decided to first project the training data onto its 12 principle component directions; this was helpful because it gave us a natural ordering for which to add variables to our model, and because each subsequent variable added is orthogonal to all previous variables in the model. To predict using our model, we first project the new data onto the original principal component directions from the training data (the new data is centered based on the training data). We then plug these derived principal component variables into our learned thin-plate model to predict and evaluate. We added smoothing functions one at a time (one per variable, starting with the first principle component) until the evaluation MSE ceased to increase. Then we considered adding smoothing functions of pairs of variables, and then triples of variables, and so on, until the model seemed to be saturated. Our most performant model for red wine included smoothing functions of the first 11 principal components, and one joint smoothing function of the first 4 principle components; our white wine model was best with just individual smoothing functions of the first 10 principal components. It's overall evaluation MSE was comparable to that of the SVM regression, but slightly higher. A careful error analysis revealed that our SMV regression model had superior prediction on white wines, however our thin-plate spline model was much more accurate in predicting red wine qualities.
 
 ```{r, message=FALSE}
+# perform PCA on each wine color of train data, then project test data
 whites_eval <- wine_eval$color == 'white'
 reds_eval <- wine_eval$color == 'red'
 Pca_reds <- prcomp(wine_train[reds,c(-2,-(p+1))], scale. = TRUE)
@@ -357,141 +284,113 @@ PCA_reds_train <- data.frame(predict(Pca_reds, wine_train[reds,c(-2,-(p+1))]))
 PCA_whites_train <- data.frame(predict(Pca_whites, wine_train[whites,c(-2,-(p+1))]))
 PCA_reds_eval <- data.frame(predict(Pca_reds, wine_eval[reds_eval,c(-2,-(p+1))]))
 PCA_whites_eval <- data.frame(predict(Pca_whites, wine_eval[whites_eval,c(-2,-(p+1))]))
+
 DimNames <- c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5", "Dim.6", "Dim.7", "Dim.8", "Dim.9", "Dim.10", "Dim.11", "Dim.12")
 colnames(PCA_reds_train) <- DimNames
 colnames(PCA_whites_train) <- DimNames
 colnames(PCA_reds_eval) <- DimNames
 colnames(PCA_whites_eval) <- DimNames
 
-# store principal component variables of training data for each color
-# don't run these two lines if ran above code
-PCA_reds_train <- data.frame(pca_reds$ind$coord[,1:12])
-PCA_whites_train <- data.frame(pca_whites$ind$coord[,1:12])
-#lo.fit8 <- loess(wine_train[reds,"quality"] ~ ., data=PCA_reds_train[,1:4])
-#lo.fit9 <- loess(wine_train[whites,"quality"] ~ ., data=PCA_whites_train[,1:4])
-#mean((lo.fit8$fitted - wine_train[reds,"quality"])^2)
-#mean((lo.fit9$fitted - wine_train[whites,"quality"])^2)
-
-# create smoothing spline models based on first 8 pcs
+# create thin-plate spline models based on first sets of pc's
 require(mgcv)
-gam_model <- gam(quality ~ s(X, fixed.acidity, volatile.acidity, citric.acid,
-                            residual.sugar, chlorides, free.sulfur.dioxide,
-                            total.sulfur.dioxide, density, pH, sulphates,
-                            alcohol), data=wine_train)
-gam_model <- gam(quality ~ s(X, fixed.acidity, volatile.acidity, citric.acid,
-                             residual.sugar, chlorides, free.sulfur.dioxide), data=wine_train)
+# first reds
 gam_model_PCA_reds <- gam(wine_train[reds,"quality"] ~ 
-                            #s(Dim.1, Dim.2, Dim.3, Dim.4,
-                              #Dim.5, Dim.6, Dim.7, Dim.8)
-                          s(Dim.1)
-                          + s(Dim.2)
-                          + s(Dim.3)
-                          + s(Dim.4)
-                          + s(Dim.5)
-                          + s(Dim.6)
-                          + s(Dim.7)
-                          + s(Dim.8)
-                          + s(Dim.9)
-                          + s(Dim.10)
-                          + s(Dim.11)
+                          s(Dim.1) + s(Dim.2) + s(Dim.3) + s(Dim.4) 
+                          + s(Dim.5) + s(Dim.6) + s(Dim.7) + s(Dim.8)
+                          + s(Dim.9) + s(Dim.10) + s(Dim.11)
                           + s(Dim.1, Dim.2, Dim.3, Dim.4), data=PCA_reds_train)
+# train mse
 mean(gam_model_PCA_reds$residuals^2)
+# evaluation mse
 mean((y_eval[reds_eval] - predict(gam_model_PCA_reds, PCA_reds_eval))^2) 
-# with first 11 main effects, get 0.4234554!
-# with first 11 main effects, and interaction s(1,2,3), get 0.4078459!
-# with first 11 main effects, and interaction s(1,2,3,4), get 0.4031348!
+# with first 11 main effects, get 0.4234554
+# with first 11 main effects, and interaction s(1,2,3), get 0.4078459
+# with first 11 main effects, and interaction s(1,2,3,4), get 0.4031348 <- BEST REDS!
 
+# now whites
 gam_model_PCA_whites <- gam(wine_train[whites,"quality"] ~ 
-                            #s(Dim.1, Dim.2, Dim.3, Dim.4,
-                              #Dim.5, Dim.6, Dim.7, Dim.8)
-                          s(Dim.1)
-                          + s(Dim.2)
-                          + s(Dim.3)
-                          + s(Dim.4)
-                          + s(Dim.5)
-                          + s(Dim.6)
-                          + s(Dim.7)
-                          + s(Dim.8)
-                          + s(Dim.9)
-                          + s(Dim.10), data=PCA_whites_train)
-mean(gam_model_PCA_whites$residuals^2)
-mean((y_eval[whites_eval] - predict(gam_model_PCA_whites, PCA_whites_eval))^2)
-(sum(gam_model_PCA_reds$residuals^2) + sum(gam_model_PCA_whites$residuals^2)) / length(wine_train$quality)
-
-
-
-gam_model_reds <- gam(quality ~ 
-                  s(X) 
-                  + s(fixed.acidity) 
-                  + s(volatile.acidity) 
-                  + s(citric.acid)
-                  + s(residual.sugar)
-                  + s(chlorides)
-                  + s(free.sulfur.dioxide)
-                  + s(total.sulfur.dioxide)
-                  + s(density)
-                  + s(pH)
-                  + s(sulphates)
-                  + s(alcohol),
-                  data=wine_train[reds,])
-gam_model_whites <- gam(quality ~ 
-                  s(X) 
-                  + s(fixed.acidity) 
-                  + s(volatile.acidity) 
-                  + s(citric.acid)
-                  + s(residual.sugar)
-                  + s(chlorides)
-                  + s(free.sulfur.dioxide)
-                  + s(total.sulfur.dioxide)
-                  + s(density)
-                  + s(pH)
-                  + s(sulphates)
-                  + s(alcohol),
-                  data=wine_train[whites,])
-mean((y_eval[reds_eval] - predict.gam(gam_model_reds, wine_eval[reds_eval,]))^2) # PRETTY GOOD! 0.4403176
-mean((y_eval[whites_eval] - predict.gam(gam_model_whites, wine_eval[whites_eval,]))^2) # 0.5311989
-mean((y_eval[whites_eval] - predict.gam(gam_model, wine_eval[whites_eval,]))^2) # combined model is better than whites-only model at predicting whites...0.5244848
-(sum((y_eval[reds_eval] - predict.gam(gam_model_reds, wine_eval[reds_eval,]))^2) + sum((y_eval[whites_eval] - predict.gam(gam_model_whites, wine_eval[whites_eval,]))^2)) / length(wine_eval$quality) # 0.5092359 -> 2nd best!
-mean((y_eval - predict.gam(gam_model2, wine_eval))^2) # combined model
-
-# transform evaluation data using pcs from training
-whites_eval <- wine_eval$color == 'white'
-reds_eval <- wine_eval$color == 'red'
-PCA_reds_eval <- data.frame(model.matrix(~. - 1, wine_eval[reds_eval,c(-2,-(p+1))]) %*% pca_reds$var$contrib[,1:12])
-PCA_whites_eval <- data.frame(model.matrix(~. - 1, wine_eval[whites_eval,c(-2,-(p+1))]) %*% pca_whites$var$contrib[,1:12])
-## 
-PCA_reds_eval <- data.frame(PCA(wine_eval[reds_eval,c(-2,-(p+1))], ncp=p-1)$ind$coord[,1:12])
-PCA_whites_eval <- data.frame(PCA(wine_eval[whites_eval,c(-2,-(p+1))], ncp=p-1)$ind$coord[,1:12])
-
-mean((y_eval[reds_eval] - predict.gam(gam_model_PCA_reds, PCA_reds_eval))^2)
-mean((y_eval[whites_eval] - predict.gam(gam_model_PCA_whites, PCA_whites_eval))^2)
+                          s(Dim.1) + s(Dim.2) + s(Dim.3) + s(Dim.4)
+                          + s(Dim.5) + s(Dim.6) + s(Dim.7) + s(Dim.8)
+                          + s(Dim.9) + s(Dim.10), data=PCA_whites_train)
+# train mse
+mean(gam_model_PCA_whites$residuals^2) # 0.5213953
+# evaluation mse
+mean((y_eval[whites_eval] - predict(gam_model_PCA_whites, PCA_whites_eval))^2) # 0.5631875
+# overall mse (reds and whites)
+(sum(gam_model_PCA_reds$residuals^2) + sum(gam_model_PCA_whites$residuals^2)) / length(wine_train$quality) # 0.4784734
 ```
 
+\section*{Final Training and Prediction}
 
-
-Tried doing multiclass logistic regression...didn't turn out so well
+After evaluating all of our models, we decided to use two models for prediction - one for red wines and one for white wines. Below we train our final two models using all of the training data, and then predict on the test data. For white wines in the test data, we use our support vector regression model on all third order interactions (we cross validate again since our training data is larger now). For red wines in the test data, we use our thin-plate spline model with principal component variables. As a comparison, we include histograms of the wine qualities in the training data, as well as of our predicted wine qualities on the test data.
 
 ```{r, message=FALSE}
-quality_vec <- factor(wine$quality)
-pred_matrix <- as.matrix(wine[,c(1,3)])
-fit <- glmnet(x = pred_matrix, y = quality_vec, family = "multinomial", type.multinomial = "grouped")
-plot(fit, xvar = "lambda", label = TRUE, type.coef = "2norm")
-cvfit=cv.glmnet(x = pred_matrix, y = quality_vec, family="multinomial", type.multinomial = "grouped", parallel = TRUE)
+# train best red wine model using all of the training data
+# loading train data again (just in case it was overwritten)
+train <- read.csv("~/Downloads/wine.train.csv")
+N_train <- dim(train)[1]
+p <- dim(train)[2] - 1
 
+# load the wine test data
+test <- read.csv("~/Downloads/wine.test.ho.csv")
+N_test <- dim(test)[1]
 
-library(foreign)
-library(nnet)
-fit2 <- multinom(quality ~ ., data = wine[1:4320,])
-mean(fit2$residuals^2)
-predictions <- predict(fit2, newdata = wine[4321:4800,], "class")
-predictions <- as.numeric(levels(predictions))[predictions]
-mean((wine[4321:4800,14]-predictions)^2)
+# train svm for regression, used to predict WHITE WINES
+library(e1071)
+
+# cross validate again on the full training set
+# note: this has been commented out due to timeout
+# tuneResult <- tune(svm, quality ~ .^3,  data = train,
+#               ranges = list(epsilon = c(0.1,0.01), cost = 2^(1:3)))
+
+# fit model
+svm_model3 <- svm(quality ~ .^3,  data = train, epsilon = 0.1, cost = 4)
+# train error (sanity check!)
+mean((train$quality - predict(svm_model3, train))^2)
+mean((train$quality - svm_model3$fitted)^2)
+# predict on the test set
+z <- predict(svm_model3, test)
+
+# train principal component-based generalized additive model with smoothing, used to predict RED WINES
+reds <- train$color == 'red'
+reds_test <- test$color == 'red'
+Pca_reds <- prcomp(train[reds,c(-2,-(p+1))], scale. = TRUE)
+PCA_reds_train <- data.frame(predict(Pca_reds, train[reds,c(-2,-(p+1))]))
+PCA_reds_test <- data.frame(predict(Pca_reds, test[reds_test,c(-2,-(p+1))]))
+
+DimNames <- c("Dim.1", "Dim.2", "Dim.3", "Dim.4", "Dim.5", "Dim.6", "Dim.7", "Dim.8", "Dim.9", "Dim.10", "Dim.11", "Dim.12")
+colnames(PCA_reds_train) <- DimNames
+colnames(PCA_reds_test) <- DimNames
+
+# fit thin-plate spline model
+require(mgcv)
+gam_model_PCA_reds <- gam(train[reds,"quality"] ~ 
+                          s(Dim.1) + s(Dim.2) + s(Dim.3) + s(Dim.4) + s(Dim.5)
+                          + s(Dim.6) + s(Dim.7) + s(Dim.8) + s(Dim.9) + s(Dim.10)
+                          + s(Dim.11) + s(Dim.1, Dim.2, Dim.3, Dim.4), data=PCA_reds_train)
+# train error (sanity check!)
+mean((train$quality[reds] - predict(gam_model_PCA_reds, PCA_reds_train))^2)
+mean(gam_model_PCA_reds$residuals^2)
+# predict on the test set (replace existing reds predictions with new reds predictions, leave whites predictions)
+z[reds_test] <- predict(gam_model_PCA_reds, PCA_reds_test)
+
+# histogram of predictions, compared to histogram of training qualities
+par(mfrow=c(2,2))
+hist(train$quality[reds], main="Training Reds")
+hist(z[reds_test], main="Reds Predictions")
+hist(train$quality[whites], main="Training Whites")
+hist(z[whites_test], main="Whites Predictions")
+
+# write predictions to a file
+write(z,file="z.txt",sep="\n")
 ```
 
-Box-Cox for finding optimal transformations of variables. Could maybe add this above somewhere (I never actually evaluated it)
+\section*{Miscellaneous}
+
+We tried using Box-Cox transformations to find the optimal power/log transformations of each of our variables. Our evaluation results were not particularly insightful, so we decided not to use it, however it was an interesting idea for exploration.
 
 ```{r, message=FALSE}
-# BOX - COX
+# box-cox
 library(MASS)
 wine_train_boxcox <- wine_train[,1:p]
 wine_eval_boxcox <- wine_eval[,1:p]
@@ -500,22 +399,9 @@ for (var in 1:p) {
   if (var != 2) {
     bc <- boxcox(quality ~ wine_train[,var], data = wine_train)
     lambda[var] <- with(bc, x[which.max(y)])
-    #wine_train_boxcox[,var] <- (wine_train[,var]^lambda[var] - 1)/lambda[var]
-    #wine_eval_boxcox[,var] <- (wine_eval[,var]^lambda[var] - 1)/lambda[var]
-    wine_train_boxcox[paste("test",var)] <- (wine_train[,var]^lambda[var] - 1)/lambda[var]
-    wine_eval_boxcox[paste("test",var)] <- (wine_eval[,var]^lambda[var] - 1)/lambda[var]
+    wine_train_boxcox[,var] <- (wine_train[,var]^lambda[var] - 1)/lambda[var]
+    wine_eval_boxcox[,var] <- (wine_eval[,var]^lambda[var] - 1)/lambda[var]
   }
 }
-# model_root <- lm(wine$quality ~ ., wine_root)
-# mean(model_root$residuals^2)
-# 
-# model_root_deg2 <- lm(wine$quality ~ .^2, wine_root)
-# mean(model_root_deg2$residuals^2)
-# 
-# pred_root_deg1 <- model.matrix(~., wine_root)
-# cv.lars(x=pred_root_deg1, y=wine$quality, type="lasso", K=10) 
-# 
-# pred_root_deg2 <- model.matrix(~.^2, wine_root)
-# cv.lars(x=pred_root_deg2, y=wine$quality, type="lasso", K=10)
 ```
 
