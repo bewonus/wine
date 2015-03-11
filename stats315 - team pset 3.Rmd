@@ -224,14 +224,14 @@ evaluate_model <- function(X_train, X_eval, y_train, y_eval) {
 
 The models demonstrated a wide variety of tuned hyperparameters to the wine dataset after cross-validation,
 but the mean squared error shows a clear ranking between methods.
-The simplest model used lasso regularization and achieved a decent MSE (.544),
+The simplest model used lasso regularization,
 but using second-order interactions between color and all other predictors made a small improvement. 
 Including all second-order interactions proved more successful, and the trend continued with all third order interactions. 
 This revealed to us that we needed to push for a more complex model, capturing non-linear aspects of the data.
 
 This hypothesis appeared to come true as we fit the local linear regression models. 
 Each surpassed the previous models, and the one using second-order interactions performed better than that with only first-order interactions.
-From this, we concluded that local models using compex interactions would give the best results for this dataset. 
+From this, we concluded that local models using compex interactions would give the best results for this dataset out of the models above. 
 
 The regularization techniques chosen by cross-validation for each model provided further insight into the dataset.
 The model using second-order interactions performed better than that using first-order and second-order only with color as long as it used ridge regularization.
