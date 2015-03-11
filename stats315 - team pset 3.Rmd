@@ -1,6 +1,6 @@
 ---
 title: "Stats 305 - Team PSET 3"
-author: "Brandon Ewonus", "Nat Roth", "Bryan McCann"
+author: "Brandon Ewonus, Nat Roth, Bryan McCann"
 date: "March 8, 2015"
 output: pdf_document
 ---
@@ -9,7 +9,7 @@ We tried several approaches in our attempts to predict wine quality from our giv
 
 We explain all this and our other modelling approaches and decisions below, along with the corresponding R code. 
 
-\section*{1. Exploring the data with simple models}
+\subsection*{1. Exploring the data with simple models}
 
 ```{r, message=FALSE}
 # load the wine data
@@ -78,7 +78,7 @@ mean((wine_eval$quality - predict(forward, wine_eval))^2) # 1.60069
 mean((wine_eval$quality - predict(backward, wine_eval))^2) # 1.822736
 ```
 
-\section*{2. Exploring feature spaces for penalized regression-based models}
+\subsection*{2. Exploring feature spaces for penalized regression-based models}
 
 We next experimented with generating a bunch of other features. We tried, among other things, using natural cubic splines with various numbers of knots (up to 20) to model the data, and fitting separate models for each color of wine. We also fit several local regression models using subsets of the parameters as our features and using R's LOESS package. For each of these fitted models, we then predicted on our held out evaluation set. We ended up using these predictions as features in some of our models going forward, the logic being that by fitting a couple different models to subsets of the data and then combining those in a future model, we would increase our model's flexibility (i.e we can essentially get non-linear parameters by fitting a model and then passing its outputs into a future model as a feature). Further, hopefully the predictions by subsets of the data for various parameters are roughly accurate, and thus could serve as useful features for future predictions. 
 
@@ -187,7 +187,7 @@ X_train_lo2 <- model.matrix(~ .^2, X_train_lo)
 X_eval_lo2 <- model.matrix(~ .^2, X_eval_lo)
 ```
 
-\section*{3. Regularization, cross-validation, and evaluation of our regression-based models}
+\subsection*{3. Regularization, cross-validation, and evaluation of our regression-based models}
 
 BRYAN'S SECTION:
 
@@ -196,8 +196,7 @@ JUST DESCRIBE CODE IN THE GREY BOX BELOW THIS. EARLIER WE DESCRIBED HTE FEATURES
 notes: code below runs ridge, lasso, and elastic net (with alpha = 0.5) regression with all of the above classes of predictor variables, cross validates to find the best lambda for each, then evaluates the resulting model on the evaluation set
 
 ```{r, message=FALSE}
-# 3. Evaluate models
-
+library(glmnet)
 # - cross validates using ridge regression, lasso, and elastic net with parameter alpha=0.5 
 #   to determine best lambda in each case (reports the corresponding minimum cv mse also)
 # - fits model based on this lambda, and reports the model's mse on the evaluation set
@@ -242,15 +241,16 @@ plot(lasso)
 cv_lasso <- cv.lars(x=X_train_order1, y=y_train, type="lasso", K=10)
 ```
 
-\section*{4. More complicated models}
+\subsection*{4. More complicated models}
 
 We next took an entirely different approach, and explored some more complicated models. We decided to use tune a support vector machine for regression using a radial basis kernel, which we hoped would ease our decision of what variables to include in our model. Surprisingly, we found that our svm regression models were the easiest to implement (we used an essentially out-of-the-box package), tune, and predict on, and they gave us some of our best overall evaluation MSE's! Our most performant version included third order interactions, a cost parameter of 4, and an epsilon parameter of 0.1. It's overall evaluation MSE was 0.471, and it also obtained the best performance on white wine's, with an MSE of 0.483.
 
 ```{r, message=FALSE}
 # evaluate support vector machine for regression
 library(e1071)
-tuneResult <- tune(svm, quality ~ .,  data = wine_train,
-              ranges = list(epsilon = c(0.1,0.01), cost = 2^(-1:3)))
+# note: this has been commented out because it is slow
+# tuneResult <- tune(svm, quality ~ .,  data = wine_train,
+#               ranges = list(epsilon = c(0.1,0.01), cost = 2^(-1:3)))
 # above gave epsilon = 0.1, cost = 4, best performance (cv) = 0.4535193
 
 # main effects only
@@ -320,7 +320,7 @@ mean((y_eval[whites_eval] - predict(gam_model_PCA_whites, PCA_whites_eval))^2) #
 (sum(gam_model_PCA_reds$residuals^2) + sum(gam_model_PCA_whites$residuals^2)) / length(wine_train$quality) # 0.4784734
 ```
 
-\section*{Final Training and Prediction}
+\subsection*{5. Final Training and Prediction}
 
 After evaluating all of our models, we decided to use two models for prediction - one for red wines and one for white wines. Below we train our final two models using all of the training data, and then predict on the test data. For white wines in the test data, we use our support vector regression model on all third order interactions (we cross validate again since our training data is larger now). For red wines in the test data, we use our thin-plate spline model with principal component variables. As a comparison, we include histograms of the wine qualities in the training data, as well as of our predicted wine qualities on the test data.
 
@@ -339,7 +339,7 @@ N_test <- dim(test)[1]
 library(e1071)
 
 # cross validate again on the full training set
-# note: this has been commented out due to timeout
+# note: this has been commented out because it is slow
 # tuneResult <- tune(svm, quality ~ .^3,  data = train,
 #               ranges = list(epsilon = c(0.1,0.01), cost = 2^(1:3)))
 
@@ -385,7 +385,7 @@ hist(z[whites_test], main="Whites Predictions")
 write(z,file="z.txt",sep="\n")
 ```
 
-\section*{Miscellaneous}
+\subsection*{6. Miscellaneous}
 
 We tried using Box-Cox transformations to find the optimal power/log transformations of each of our variables. Our evaluation results were not particularly insightful, so we decided not to use it, however it was an interesting idea for exploration.
 
